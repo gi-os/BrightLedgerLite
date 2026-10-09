@@ -80,7 +80,7 @@ fun Page(
     scroll: ScrollState,
     bottom: List<LightBarButton> = emptyList(),
     right: LightBarButton? = null,
-    overlay: (@Composable () -> Unit)? = null,
+    overlay: @Composable () -> Unit = {},
     body: @Composable () -> Unit,
 ) {
     LedgerSurface {
@@ -102,7 +102,7 @@ fun Page(
             }
             if (bottom.isNotEmpty()) LightBottomBar(bottom)
         }
-        overlay?.invoke()
+        overlay()
     }
 }
 

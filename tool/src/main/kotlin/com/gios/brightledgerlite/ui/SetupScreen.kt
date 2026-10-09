@@ -99,7 +99,12 @@ class SetupScreen(sealedActivity: SealedLightActivity) :
         Page(
             title = "Connect",
             onBack = { goBack(false) },
-XX, onClick = {
+            scroll = scroll,
+            overlay = {
+                state.error?.let { LightFullscreenModal(message = it, onClose = viewModel::dismissError) }
+            },
+            bottom = listOf(
+                LightBarButton.Text("SCAN", onClick = {
                     if (!state.claiming) {
                         navigateTo({ QrScanScreen(it) }) { raw ->
                             viewModel.setToken(raw)
