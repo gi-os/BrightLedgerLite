@@ -1,5 +1,7 @@
 # Ledger Lite (BrightLedgerLite)
 
+> **This is the Lite version.** BrightLedger Lite is built only with Light's official SDK, so it can go in the Light Tool Library. It does less than the full app. For the full app, get [BrightLedger](https://github.com/gi-os/BrightLedger) ([on BrightMarket](https://brightmarket.gzl.dev/app/com.gios.brightledger/)).
+
 Bank balances and transactions on the Light Phone III over the
 [SimpleFIN](https://www.simplefin.org/protocol.html) protocol, built as an official Light SDK
 tool. It is the Tool Library version of [BrightLedger](https://github.com/gi-os/BrightLedger),
