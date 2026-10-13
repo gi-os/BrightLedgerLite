@@ -47,9 +47,8 @@ class AccountScreen(
                 Note("This account is no longer in the ledger.")
                 return@Page
             }
-            LightText(
+            BigAmount(
                 text = Amounts.plain(account.balanceCents, account.currency),
-                variant = LightTextVariant.Title,
                 modifier = Modifier.padding(top = 0.5f.gridUnitsAsDp()),
             )
             account.availableCents?.takeIf { it != account.balanceCents }?.let {
@@ -113,9 +112,8 @@ class TransactionScreen(
                 Note("This transaction is no longer in the ledger. A pending charge that settled may have come back under a new reference.")
                 return@Page
             }
-            LightText(
+            BigAmount(
                 text = Amounts.signed(txn.amountCents, account?.currency),
-                variant = LightTextVariant.Title,
                 lighten = txn.pending,
                 modifier = Modifier.padding(top = 0.5f.gridUnitsAsDp()),
             )
@@ -159,10 +157,7 @@ class RecurringScreen(sealedActivity: SealedLightActivity) :
             }
             LightText(text = "REPEATING", variant = LightTextVariant.Fine, lighten = true,
                 modifier = Modifier.padding(top = 0.5f.gridUnitsAsDp()))
-            LightText(
-                text = Amounts.plain(charges.sumOf { Recurring.monthlyCostCents(it) }, currency),
-                variant = LightTextVariant.Title,
-            )
+            BigAmount(text = Amounts.plain(charges.sumOf { Recurring.monthlyCostCents(it) }, currency))
             LightText(text = "a month across ${charges.size} charges", variant = LightTextVariant.Copy)
             SectionLabel("Charges")
             charges.forEach { charge ->

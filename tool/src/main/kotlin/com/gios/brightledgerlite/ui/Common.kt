@@ -282,3 +282,19 @@ class ConfirmScreen(
         }
     }
 }
+
+/**
+ * A money figure at the largest size that fits on one line. At the Title size, nine
+ * characters ("$3,482.16") wrap their last digit onto a second line on the LP3 screen,
+ * so longer figures step down to Subtitle.
+ */
+@androidx.compose.runtime.Composable
+fun BigAmount(text: String, modifier: androidx.compose.ui.Modifier = androidx.compose.ui.Modifier, lighten: Boolean = false) {
+    com.thelightphone.sdk.ui.LightText(
+        text = text,
+        variant = if (text.length <= 8) com.thelightphone.sdk.ui.LightTextVariant.Title else com.thelightphone.sdk.ui.LightTextVariant.Subtitle,
+        modifier = modifier,
+        lighten = lighten,
+        maxLines = 1,
+    )
+}

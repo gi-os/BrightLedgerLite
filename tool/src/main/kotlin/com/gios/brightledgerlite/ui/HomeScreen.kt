@@ -176,7 +176,7 @@ class HomeScreen(sealedActivity: SealedLightActivity) :
                         ) {
                             Spacer(modifier = Modifier.height(0.5f.gridUnitsAsDp()))
                             LightText(text = "SPENT TODAY", variant = LightTextVariant.Fine, lighten = true)
-                            LightText(text = Amounts.plain(totals.todayCents, currency), variant = LightTextVariant.Title)
+                            BigAmount(text = Amounts.plain(totals.todayCents, currency))
                             LightText(
                                 text = Amounts.plain(totals.monthCents, currency) + " this month",
                                 variant = LightTextVariant.Copy,
