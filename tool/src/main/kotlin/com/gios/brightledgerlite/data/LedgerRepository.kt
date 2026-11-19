@@ -57,6 +57,17 @@ class LedgerRepository private constructor(
         data class Failed(val message: String) : Outcome
     }
 
+    /** What the stored error asks of the user, kept with it so it survives a restart. */
+    enum class ErrorKind {
+        /** Revoked access or an unreadable credential: connect again. */
+        Reconnect,
+
+        /** The server wants its subscription renewed. */
+        Payment,
+
+        Other,
+    }
+
     enum class Trigger { Open, Manual, Background, FirstSync }
 
     sealed interface ClaimOutcome {
@@ -84,6 +95,10 @@ class LedgerRepository private constructor(
     suspend fun host(): String? = dataStore.data.first()[KEY_HOST]
 
     suspend fun lastError(): String? = dataStore.data.first()[KEY_LAST_ERROR]
+
+    suspend fun lastErrorKind(): ErrorKind =
+        runCatching { ErrorKind.valueOf(dataStore.data.first()[KEY_LAST_ERROR_KIND].orEmpty()) }
+            .getOrDefault(ErrorKind.Other)
 
     suspend fun backgroundSync(): Boolean = dataStore.data.first()[KEY_BACKGROUND] == true
 
@@ -145,6 +160,7 @@ class LedgerRepository private constructor(
                         it[KEY_HOST] = access.host
                         it.remove(KEY_LAST_ATTEMPT)
                         it.remove(KEY_LAST_ERROR)
+                        it.remove(KEY_LAST_ERROR_KIND)
                     }
                     file.delete()
                     _ledger.value = Ledger()
@@ -181,19 +197,19 @@ class LedgerRepository private constructor(
             if (!allowed) return@withContext Outcome.Skipped
 
             val access = access() ?: return@withContext Outcome.Failed(
-                "The saved credential could not be read. Disconnect in Settings and connect again.",
-            ).also { recordError(it.message) }
+                "The saved credential could not be read. Reconnect to keep syncing.",
+            ).also { recordError(it.message, ErrorKind.Reconnect) }
 
             _syncing.value = true
             dataStore.edit { it[KEY_LAST_ATTEMPT] = now }
             val windowStart = SyncPolicy.windowStart(lastSuccess, now)
             when (val result = client.fetchAccounts(access, startDate = windowStart)) {
                 is SimpleFinClient.FetchResult.Forbidden -> {
-                    recordError("Access was revoked. Disconnect and connect again with a new token.")
+                    recordError("Access was revoked. Reconnect to keep syncing.", ErrorKind.Reconnect)
                     Outcome.NeedsReconnect
                 }
                 is SimpleFinClient.FetchResult.PaymentRequired -> {
-                    recordError("The SimpleFIN server wants its subscription renewed.")
+                    recordError("The SimpleFIN server wants its subscription renewed.", ErrorKind.Payment)
                     Outcome.PaymentRequired
                 }
                 is SimpleFinClient.FetchResult.Failed -> {
@@ -209,7 +225,10 @@ class LedgerRepository private constructor(
                         keepSinceSeconds = SyncPolicy.keepSince(now),
                     )
                     save(merged)
-                    dataStore.edit { it.remove(KEY_LAST_ERROR) }
+                    dataStore.edit {
+                        it.remove(KEY_LAST_ERROR)
+                        it.remove(KEY_LAST_ERROR_KIND)
+                    }
                     // Server text, shown as plain text and never parsed.
                     Outcome.Ok(result.data.errors.map { it.msg })
                 }
@@ -220,8 +239,11 @@ class LedgerRepository private constructor(
         }
     }
 
-    private suspend fun recordError(message: String) {
-        dataStore.edit { it[KEY_LAST_ERROR] = message }
+    private suspend fun recordError(message: String, kind: ErrorKind = ErrorKind.Other) {
+        dataStore.edit {
+            it[KEY_LAST_ERROR] = message
+            it[KEY_LAST_ERROR_KIND] = kind.name
+        }
     }
 
     /**
@@ -236,6 +258,7 @@ class LedgerRepository private constructor(
                 it.remove(KEY_HOST)
                 it.remove(KEY_LAST_ATTEMPT)
                 it.remove(KEY_LAST_ERROR)
+                it.remove(KEY_LAST_ERROR_KIND)
                 it.remove(KEY_BACKGROUND)
             }
             Credential.destroy()
@@ -249,6 +272,7 @@ class LedgerRepository private constructor(
         private val KEY_HOST = stringPreferencesKey("access_host")
         private val KEY_LAST_ATTEMPT = longPreferencesKey("last_attempt")
         private val KEY_LAST_ERROR = stringPreferencesKey("last_error")
+        private val KEY_LAST_ERROR_KIND = stringPreferencesKey("last_error_kind")
         private val KEY_BACKGROUND = booleanPreferencesKey("background_sync")
         private const val LEDGER_FILE = "ledger.json"
 
