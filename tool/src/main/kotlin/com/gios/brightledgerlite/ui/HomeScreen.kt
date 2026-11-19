@@ -58,6 +58,9 @@ class HomeViewModel(
     private val _lastError = MutableStateFlow<String?>(null)
     val lastError: StateFlow<String?> = _lastError.asStateFlow()
 
+    private val _errorKind = MutableStateFlow(LedgerRepository.ErrorKind.Other)
+    val errorKind: StateFlow<LedgerRepository.ErrorKind> = _errorKind.asStateFlow()
+
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message.asStateFlow()
 
@@ -67,6 +70,7 @@ class HomeViewModel(
             val isConnected = repo.isConnected()
             _connected.value = isConnected
             _lastError.value = repo.lastError()
+            _errorKind.value = repo.lastErrorKind()
             if (isConnected && online()) run(Trigger.Open)
         }
     }
@@ -91,6 +95,7 @@ class HomeViewModel(
     private suspend fun run(trigger: Trigger): Outcome {
         val outcome = repo.sync(trigger)
         _lastError.value = repo.lastError()
+        _errorKind.value = repo.lastErrorKind()
         _message.value = when (outcome) {
             is Outcome.Ok -> outcome.warnings.firstOrNull()
             Outcome.NeedsReconnect ->
@@ -140,6 +145,8 @@ class HomeScreen(sealedActivity: SealedLightActivity) :
         val ledger by viewModel.ledger.collectAsState()
         val syncing by viewModel.syncing.collectAsState()
         val lastError by viewModel.lastError.collectAsState()
+        val errorKind by viewModel.errorKind.collectAsState()
+        val mustReconnect = errorKind == LedgerRepository.ErrorKind.Reconnect
         val message by viewModel.message.collectAsState()
         val scroll = rememberWheelScroll(viewModel.wheel)
 
@@ -208,13 +215,28 @@ class HomeScreen(sealedActivity: SealedLightActivity) :
                                 modifier = Modifier.padding(top = 0.4f.gridUnitsAsDp()),
                             )
                             if (!syncing && lastError != null) {
-                                LightText(text = lastError.orEmpty(), variant = LightTextVariant.Fine, lighten = true)
+                                if (errorKind == LedgerRepository.ErrorKind.Other) {
+                                    LightText(text = lastError.orEmpty(), variant = LightTextVariant.Fine, lighten = true)
+                                } else {
+                                    // Needs the user to act, so it reads like body copy.
+                                    LightText(
+                                        text = lastError.orEmpty(),
+                                        variant = LightTextVariant.Copy,
+                                        modifier = Modifier.padding(top = 0.5f.gridUnitsAsDp()),
+                                    )
+                                }
                             }
 
                             SectionLabel("Accounts")
                             val accounts = ledger.sortedAccounts()
                             if (accounts.isEmpty()) {
-                                Note(if (syncing) "Loading…" else "No accounts yet.")
+                                Note(
+                                    when {
+                                        syncing -> "Loading…"
+                                        ledger.lastSuccess > 0L -> "No accounts found. Add one in SimpleFIN, then press SYNC."
+                                        else -> "No accounts yet."
+                                    },
+                                )
                             }
                             accounts.forEach { account ->
                                 AmountRow(
@@ -240,7 +262,11 @@ class HomeScreen(sealedActivity: SealedLightActivity) :
                     false -> LightBottomBar(listOf(LightBarButton.Text("CONNECT", onClick = ::openSetup)))
                     true -> LightBottomBar(
                         listOf(
-                            LightBarButton.Text(if (syncing) "SYNCING" else "SYNC", onClick = viewModel::syncNow),
+                            if (mustReconnect && !syncing) {
+                                LightBarButton.Text("RECONNECT", onClick = ::openSettings)
+                            } else {
+                                LightBarButton.Text(if (syncing) "SYNCING" else "SYNC", onClick = viewModel::syncNow)
+                            },
                             LightBarButton.Text("REPEATS", onClick = ::openRecurring),
                         ),
                     )
